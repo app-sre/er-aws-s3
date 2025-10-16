@@ -1,5 +1,5 @@
 from collections.abc import Sequence
-from typing import Any, Literal
+from typing import Any, Literal, Self
 
 from external_resources_io.input import AppInterfaceProvision
 from pydantic import (
@@ -78,7 +78,9 @@ class S3AppInterface(BaseModel):
     request_payer: Literal["BucketOwner", "Requester"] | None = Field(
         default=None, exclude=True
     )
-    server_side_encryption_configuration: dict[str, Any] = DEFAULT_S3_SSE_CONFIGURATION
+    server_side_encryption_configuration: dict[str, Any] = Field(
+        default=DEFAULT_S3_SSE_CONFIGURATION, exclude=True
+    )
     #    sqs_identifier: str | None = Field(default=None)
     storage_class: (
         Literal[
@@ -95,7 +97,7 @@ class S3AppInterface(BaseModel):
     website: dict[str, Any] | None = Field(default=None, exclude=True)
 
 
-class S3(S3AppInterface):
+class S3Bucket(S3AppInterface):
     """S3 bucket Terraform attributes"""
 
     model_config = ConfigDict(extra="allow")
@@ -105,7 +107,7 @@ class S3(S3AppInterface):
     tags: dict[str, Any] | None = Field(default=None)
 
     @model_validator(mode="after")
-    def bucket_identifier(self) -> "S3":
+    def bucket_identifier(self) -> Self:
         """Assigns identifier to bucket"""
         self.bucket = self.identifier
         return self
@@ -120,5 +122,23 @@ class S3(S3AppInterface):
 class AppInterfaceInput(BaseModel):
     """The input model class"""
 
-    data: S3
+    data: S3Bucket
     provision: AppInterfaceProvision
+
+
+class TerraformModuledata(BaseModel):
+    """The input model class"""
+
+    ai_input: AppInterfaceInput = Field(exclude=True)
+
+    @computed_field
+    def s3_bucket(self) -> S3Bucket | None:
+        """The db_instance variable"""
+        return self.ai_input.data
+
+    @computed_field
+    def server_side_encryption_configuration(
+        self,
+    ) -> dict[str, Any] | None:
+        """The server_side_encryption_configuration variable"""
+        return self.ai_input.data.server_side_encryption_configuration

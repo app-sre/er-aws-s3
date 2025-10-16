@@ -33,12 +33,18 @@ from cdktf_cdktf_provider_aws.s3_bucket_ownership_controls import (
     S3BucketOwnershipControlsRule,
 )
 from cdktf_cdktf_provider_aws.s3_bucket_policy import S3BucketPolicy
+from cdktf_cdktf_provider_aws.s3_bucket_request_payment_configuration import (
+    S3BucketRequestPaymentConfiguration,
+)
 from cdktf_cdktf_provider_aws.s3_bucket_server_side_encryption_configuration import (
     S3BucketServerSideEncryptionConfigurationA,
 )
 from cdktf_cdktf_provider_aws.s3_bucket_versioning import (
     S3BucketVersioningA,
     S3BucketVersioningVersioningConfiguration,
+)
+from cdktf_cdktf_provider_aws.s3_bucket_website_configuration import (
+    S3BucketWebsiteConfiguration,
 )
 from constructs import Construct
 
@@ -255,7 +261,7 @@ class Stack(TerraformStack):
         TerraformOutput(
             self,
             self.input.data.output_prefix + "__endpoint",
-            value=f"s3.${self.input.data.region}.amazonaws.com",
+            value=f"s3.{self.input.data.region}.amazonaws.com",
         )
 
     def _s3_bucket_logging(self) -> None:
@@ -301,6 +307,7 @@ class Stack(TerraformStack):
 
     def _s3_lifecycle_rules(self) -> None:
         for rule in self.input.data.lifecycle_rules or []:
+            rule["status"] = rule["enabled"]
             S3BucketLifecycleConfiguration(
                 self, id_=rule["id"], bucket=self.bucket_obj.id, rule=[rule]
             )
@@ -473,6 +480,27 @@ class Stack(TerraformStack):
             id=f"${self.input.data.output_prefix}__aws_secret_access_key",
             value=key.secret,
             sensitive=True,
+        )
+
+    def _s3_website(self) -> None:
+        if not self.input.data.website:
+            return
+        S3BucketWebsiteConfiguration(
+            self,
+            id_=f"{self.input.data.identifier}-website-conf",
+            bucket=self.bucket_obj.id,
+            **self.input.data.website,
+        )
+
+    def _s3_request_payer(self) -> None:
+        if not self.input.data.request_payer:
+            return
+
+        S3BucketRequestPaymentConfiguration(
+            self,
+            id_=f"{self.input.data.identifier}-request-payer",
+            bucket=self.bucket_obj.id,
+            payer=self.input.data.request_payer,
         )
 
     def _run(self) -> None:
